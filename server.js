@@ -1,14 +1,21 @@
-console.log(" Server file loaded");
-
+console.log("🚀 Server file loaded");
 
 const express = require("express");
 const cors = require("cors");
+const Parser = require("rss-parser");
 
 const app = express();
+const parser = new Parser();
 
 app.use(cors());
 app.use(express.json());
 
+// ---- Health check
+app.get("/", (req, res) => {
+  res.send("CryptoIQ backend is running");
+});
+
+// ---- Calculator
 app.post("/calculate", (req, res) => {
   const { amount, buyPrice, sellPrice } = req.body;
 
@@ -27,10 +34,46 @@ app.post("/calculate", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5001;
+// ---- News (cached)
+let cachedNews = [];
+let lastFetchTime = 0;
+const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
 
-app.get("/", (req, res) => {
-  res.send("CryptoIQ backend is running");
+app.get("/news", async (req, res) => {
+  try {
+    const now = Date.now();
+
+    if (cachedNews.length && now - lastFetchTime < CACHE_DURATION) {
+      return res.json(cachedNews);
+    }
+
+    const feed = await parser.parseURL(
+      "https://www.coindesk.com/arc/outboundfeeds/rss/"
+    );
+
+    cachedNews = feed.items.slice(0, 10).map(item => ({
+      title: item.title,
+      link: item.link,
+      published: item.pubDate,
+      source: "CoinDesk",
+    }));
+
+    lastFetchTime = now;
+    res.json(cachedNews);
+  } catch (err) {
+    console.error("News error:", err);
+    res.status(500).json({ error: "Failed to fetch crypto news" });
+  }
 });
 
-app.listen(PORT, () => console.log("Backend running on port " + PORT));
+// ---- START SERVER (LAST LINE)
+const PORT = process.env.PORT || 5001;
+const server = app.listen(PORT, () => {
+  console.log(`✅ Backend listening on port ${PORT}`);
+});
+
+// keep process alive (safety)
+server.on("error", (err) => {
+  console.error("Server error:", err);
+});
+
