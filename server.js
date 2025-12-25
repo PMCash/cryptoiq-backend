@@ -42,15 +42,20 @@ const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
 app.get("/news", async (req, res) => {
   try {
     const now = Date.now();
+    const tier = req.query.tier || "free";
 
+    // Serve from cache if still fresh
     if (cachedNews.length && now - lastFetchTime < CACHE_DURATION) {
-      return res.json(cachedNews);
+      const limited =
+        tier === "premium" ? cachedNews : cachedNews.slice(0, 3);
+      return res.json(limited);
     }
 
     const feed = await parser.parseURL(
       "https://www.coindesk.com/arc/outboundfeeds/rss/"
     );
 
+    // Always cache full set
     cachedNews = feed.items.slice(0, 10).map(item => ({
       title: item.title,
       link: item.link,
@@ -59,21 +64,26 @@ app.get("/news", async (req, res) => {
     }));
 
     lastFetchTime = now;
-    res.json(cachedNews);
+
+    // Return based on tier
+    const response =
+      tier === "premium" ? cachedNews : cachedNews.slice(0, 3);
+
+    res.json(response);
   } catch (err) {
     console.error("News error:", err);
     res.status(500).json({ error: "Failed to fetch crypto news" });
   }
 });
 
-// ---- START SERVER (LAST LINE)
+// ---- START SERVER (MUST BE LAST)
 const PORT = process.env.PORT || 5001;
+
 const server = app.listen(PORT, () => {
   console.log(`✅ Backend listening on port ${PORT}`);
 });
 
-// keep process alive (safety)
+// Optional: log server errors
 server.on("error", (err) => {
   console.error("Server error:", err);
 });
-
