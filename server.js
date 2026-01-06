@@ -8,6 +8,7 @@ const express = require("express");
 const cors = require("cors");
 const Parser = require("rss-parser");
 const { createClient } = require("@supabase/supabase-js");
+const axios = require("axios");
 
 // 2️⃣ APP + CLIENT SETUP
 const app = express();
@@ -193,6 +194,120 @@ app.get("/news", async (req, res) => {
   } catch (err) {
     console.error("News error:", err);
     res.status(500).json({ error: "Failed to fetch crypto news" });
+  }
+});
+
+// ===================================================
+// 💳 8️⃣ PAYSTACK – INITIALIZE PREMIUM PAYMENT(AZA-WAY)
+// ===================================================
+app.post("/paystack/initialize", authenticateUser, async (req, res) => {
+  try {
+    const { currency } = req.body;
+
+    // 💰 Pricing
+    const pricing = {
+      NGN: { amount: 750000, currency: "NGN" }, // Paystack uses kobo
+      USD: { amount: 500, currency: "USD" },    // Paystack uses cents
+    };
+
+    const selected = pricing[currency] || pricing.NGN;
+
+    // 🔐 Initialize Paystack transaction
+    const response = await axios.post(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        email: req.user.email,
+        amount: selected.amount,
+        currency: selected.currency,
+        callback_url: `${process.env.FRONTEND_URL}/payment-success`,
+        metadata: {
+          user_id: req.user.id,
+          plan: "premium",
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    res.json({
+      authorization_url: response.data.data.authorization_url,
+      reference: response.data.data.reference,
+    });
+
+  } catch (err) {
+    console.error("Paystack init error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to initialize payment" });
+  }
+});
+
+// ===================================================
+// ✅ 9️⃣ PAYSTACK – VERIFY PAYMENT & UPGRADE ROLE
+// ===================================================
+app.post("/paystack/verify", authenticateUser, async (req, res) => {
+  try {
+    const { reference } = req.body;
+
+    if (!reference) {
+      return res.status(400).json({ error: "Missing payment reference" });
+    }
+
+    // 🔍 Verify transaction with Paystack
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const data = response.data.data;
+
+    // ❌ Payment not successful
+    if (data.status !== "success") {
+      return res.status(400).json({ error: "Payment not successful" });
+    }
+
+    // 🔒 Confirm metadata matches user
+    if (data.metadata?.user_id !== req.user.id) {
+      return res.status(403).json({ error: "User mismatch" });
+    }
+
+    // 🛑 Prevent double upgrade
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", req.user.id)
+      .single();
+
+    if (profile?.role === "premium") {
+      return res.json({ success: true, message: "Already premium" });
+    }
+
+    // ⭐ Upgrade user role
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        role: "premium",
+      })
+      .eq("id", req.user.id);
+
+    if (error) {
+      return res.status(500).json({ error: "Failed to upgrade account" });
+    }
+
+    res.json({
+      success: true,
+      message: "Premium activated successfully",
+    });
+
+  } catch (err) {
+    console.error("Paystack verify error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Payment verification failed" });
   }
 });
 
