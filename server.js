@@ -21,7 +21,13 @@ const supabase = createClient(
 
 // 3️⃣ GLOBAL MIDDLEWARE
 app.use(cors());
-app.use(express.json());
+app.use((req, res, next) => {
+  if (req.originalUrl === "/paystack/webhook") {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
 
 // ===================================================
 // 🔐 5️⃣ AUTH MIDDLEWARE (CORRECT PLACE)
@@ -44,6 +50,49 @@ const authenticateUser = async (req, res, next) => {
   req.user = data.user;
   next();
 };
+
+// ===================================================
+// 🔔 PAYSTACK WEBHOOK
+// ===================================================
+app.post("/paystack/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+
+  const crypto = require("crypto");
+  const hash = crypto
+    .createHmac("sha512", secret)
+    .update(req.body)
+    .digest("hex");
+
+  if (hash !== req.headers["x-paystack-signature"]) {
+    return res.status(401).send("Invalid signature");
+  }
+
+  const event = JSON.parse(req.body.toString());
+
+  // ✅ Only act on successful charge
+  if (event.event === "charge.success") {
+    const email = event.data.customer.email;
+
+    // 1️⃣ Get user by email
+    const { data: user } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .single();
+
+    if (user) {
+      // 2️⃣ Upgrade role
+      await supabase
+        .from("profiles")
+        .update({ role: "premium" })
+        .eq("id", user.id);
+
+      console.log(`✅ User ${email} upgraded to premium`);
+    }
+  }
+
+  res.sendStatus(200);
+});
 
 // 4️⃣ PUBLIC ROUTES
 app.get("/", (req, res) => {
