@@ -251,7 +251,7 @@ app.get("/news", async (req, res) => {
 // ===================================================
 app.post("/paystack/initialize", authenticateUser, async (req, res) => {
   try {
-    const { currency } = req.body;
+    const userCountry = req.headers["x-country"] || "NG"; // default NG
 
     // 💰 Pricing
     const pricing = {
@@ -259,7 +259,7 @@ app.post("/paystack/initialize", authenticateUser, async (req, res) => {
       USD: { amount: 500, currency: "USD" },    // Paystack uses cents
     };
 
-    const selected = pricing[currency] || pricing.NGN;
+    const selected = pricing[userCountry] || pricing.NGN;
 
     // 🔐 Initialize Paystack transaction
     const response = await axios.post(
@@ -282,10 +282,19 @@ app.post("/paystack/initialize", authenticateUser, async (req, res) => {
       }
     );
 
+    const authUrl = response.data?.data?.authorization_url;
+
+    if (!authUrl) {
+      return res.status(500).json({
+        error: "Payment initialization failed",
+      });
+    }
+
     res.json({
-      authorization_url: response.data.data.authorization_url,
-      reference: response.data.data.reference,
+       authorization_url: authUrl,
+       reference: response.data.data.reference,
     });
+
 
   } catch (err) {
     console.error("Paystack init error:", err.response?.data || err.message);
