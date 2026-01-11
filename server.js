@@ -1,4 +1,10 @@
 require("dotenv").config();
+console.log("ENV CHECK:", {
+  hasPaystack: !!process.env.PAYSTACK_SECRET_KEY,
+  hasSupabase: !!process.env.SUPABASE_URL,
+  hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  hasFrontend: !!process.env.FRONTEND_URL
+});
 
 console.log("🚀 Server file loaded");
 //console.log("SUPABASE_URL:", process.env.SUPABASE_URL);
