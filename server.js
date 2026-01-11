@@ -6,34 +6,44 @@ console.log("ENV CHECK:", {
   hasFrontend: !!process.env.FRONTEND_URL
 });
 
+
 console.log("🚀 Server file loaded");
-//console.log("SUPABASE_URL:", process.env.SUPABASE_URL);
+//console.log("SUPABASE_URL:o", process.env.SUPABASE_URL);
 
 // 1️⃣ IMPORTS
 const express = require("express");
 const cors = require("cors");
 const Parser = require("rss-parser");
+const parser = new Parser();
 const { createClient } = require("@supabase/supabase-js");
 const axios = require("axios");
 
 // 2️⃣ APP + CLIENT SETUP
 const app = express();
-const parser = new Parser();
+app.use(express.json());
+
+//Request logger (debug)
+app.use((req, res, next) => {
+  console.log("➡️ Incoming:", req.method, req.url);
+  next();
+});
+
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://cryptoiq-frontend-jsl1.onrender.com",
+  ],
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// 3️⃣ GLOBAL MIDDLEWARE
-app.use(cors());
-app.use((req, res, next) => {
-  if (req.originalUrl === "/paystack/webhook") {
-    next();
-  } else {
-    express.json()(req, res, next);
-  }
-});
+
+
 
 // ===================================================
 // 🔐 5️⃣ AUTH MIDDLEWARE (CORRECT PLACE)
@@ -257,17 +267,17 @@ app.get("/news", async (req, res) => {
 // ===================================================
 app.post("/paystack/initialize", authenticateUser, async (req, res) => {
   try {
-    const userCountry = req.headers["x-country"] || "NG"; // default NG
+    console.log("✅ Paystack initialize HIT for:", req.user.email);
 
-    // 💰 Pricing
+    const userCountry = req.headers["x-country"] || "NG";
+
     const pricing = {
-      NGN: { amount: 750000, currency: "NGN" }, // Paystack uses kobo
-      USD: { amount: 500, currency: "USD" },    // Paystack uses cents
+      NG: { amount: 750000, currency: "NGN" }, // ₦7,500
+      US: { amount: 500, currency: "USD" },    // $5.00
     };
 
-    const selected = pricing[userCountry] || pricing.NGN;
+    const selected = pricing[userCountry] || pricing.NG;
 
-    // 🔐 Initialize Paystack transaction
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {
@@ -291,19 +301,16 @@ app.post("/paystack/initialize", authenticateUser, async (req, res) => {
     const authUrl = response.data?.data?.authorization_url;
 
     if (!authUrl) {
-      return res.status(500).json({
-        error: "Payment initialization failed",
-      });
+      return res.status(500).json({ error: "Paystack failed to return URL" });
     }
 
     res.json({
-       authorization_url: authUrl,
-       reference: response.data.data.reference,
+      authorization_url: authUrl,
+      reference: response.data.data.reference,
     });
 
-
   } catch (err) {
-    console.error("Paystack init error:", err.response?.data || err.message);
+    console.error("❌ Paystack init error:", err.response?.data || err.message);
     res.status(500).json({ error: "Failed to initialize payment" });
   }
 });
