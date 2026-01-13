@@ -124,7 +124,7 @@ app.post("/paystack/initialize", authenticateUser, async (req, res) => {
         email: req.user.email,
         amount: 750000,
         currency: "NGN",
-        callback_url: `${process.env.FRONTEND_URL}/#/payment-success`,
+        callback_url: `${process.env.FRONTEND_URL}/payment-success`,
         metadata: {
           user_id: req.user.id,
           plan: "premium",
@@ -137,10 +137,15 @@ app.post("/paystack/initialize", authenticateUser, async (req, res) => {
         },
       }
     );
-
+const paystackData = response.data?.data;
+    if (!paystackData?.authorization_url) {
+      return res.status(500).json({
+        error: "Paystack did not return authorization URL",
+      });
+    }
     res.json({
-      authorization_url: response.data.data.authorization_url,
-      reference: response.data.data.reference,
+      authorization_url: paystackData.authorization_url,
+      reference: paystackData.reference,
     });
   } catch (err) {
     console.error("Paystack init error:", err.response?.data || err.message);
