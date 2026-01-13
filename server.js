@@ -119,6 +119,28 @@ app.get("/", (req, res) => {
 
 // (other routes remain unchanged)
 
+// ================= CRYPTO NEWS ROUTE =================
+app.get("/news", async (req, res) => {
+  try {
+    // Example RSS feed - you can replace this with any crypto news RSS feed
+    const feed = await parser.parseURL("https://cryptonews-api.com/rss");
+
+    // Map to simple structure expected by frontend
+    const newsItems = feed.items.map(item => ({
+      title: item.title,
+      link: item.link
+    }));
+
+    console.log("Fetched news items:", newsItems.length);
+
+    res.json(newsItems);
+  } catch (err) {
+    console.error("Failed to fetch crypto news:", err);
+    // Return empty array on failure to prevent frontend breaking
+    res.status(500).json({ error: "Failed to fetch news" });
+  }
+});
+
 // ================= PAYSTACK INIT =================
 app.post("/paystack/initialize", authenticateUser, async (req, res) => {
   try {
