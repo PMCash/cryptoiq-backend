@@ -83,7 +83,7 @@ app.use(
   })
 );
 // handle preflight requests safely for Node.js v22.17.0 and above
-app.use(cors());
+/*app.use(cors()); */
 // ================= SUPABASE =================
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -154,6 +154,13 @@ app.get("/news", async (req, res) => {
 // ================= PAYSTACK INIT =================
 app.post("/paystack/initialize", authenticateUser, async (req, res) => {
   try {
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+       console.error("❌ PAYSTACK_SECRET_KEY is missing");
+       return res.status(500).json({
+         error: "Payment system not configured",
+      });
+    }
+
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {
