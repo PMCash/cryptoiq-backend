@@ -79,7 +79,7 @@ app.use(
       "https://cryptoiq-frontend-jsl1.onrender.com",
     ],
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization" , "X-Country"],
     credentials: true,
   })
 );
