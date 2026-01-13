@@ -80,7 +80,6 @@ app.use(
     ],
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization" , "X-country"],
-    credentials: true,
   })
 );
 // handle preflight requests safely for Node.js v22.17.0 and above
