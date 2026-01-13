@@ -84,7 +84,6 @@ app.use(
 );
 // handle preflight requests safely for Node.js v22.17.0 and above
 app.use(cors());
-
 // ================= SUPABASE =================
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -117,29 +116,40 @@ app.get("/", (req, res) => {
   res.send("CryptoIQ backend is running");
 });
 
-// (other routes remain unchanged)
 
-// ================= CRYPTO NEWS ROUTE =================
+
+// ================= CRYPTO NEWS ROUTE (FREE COINGECKO) =================
 app.get("/news", async (req, res) => {
   try {
-    // Example RSS feed - you can replace this with any crypto news RSS feed
-    const feed = await parser.parseURL("https://cryptonews-api.com/rss");
+    const response = await axios.get(
+      "https://api.coingecko.com/api/v3/search/trending",
+      {
+        timeout: 8000,
+        headers: {
+          "User-Agent": "CryptoIQ/1.0",
+          Accept: "application/json",
+        },
+      }
+    );
 
-    // Map to simple structure expected by frontend
-    const newsItems = feed.items.map(item => ({
-      title: item.title,
-      link: item.link
+    const items = response.data.coins.slice(0, 10).map((item) => ({
+      title: `${item.item.name} (${item.item.symbol}) is trending`,
+      link: `https://www.coingecko.com/en/coins/${item.item.id}`,
     }));
 
-    console.log("Fetched news items:", newsItems.length);
-
-    res.json(newsItems);
+    res.status(200).json(items);
   } catch (err) {
-    console.error("Failed to fetch crypto news:", err);
-    // Return empty array on failure to prevent frontend breaking
-    res.status(500).json({ error: "Failed to fetch news" });
+    console.error(
+      "❌ News fetch failed:",
+      err.response?.status,
+      err.message
+    );
+
+    // IMPORTANT: Never break frontend UI
+    res.status(200).json([]);
   }
 });
+
 
 // ================= PAYSTACK INIT =================
 app.post("/paystack/initialize", authenticateUser, async (req, res) => {
