@@ -80,9 +80,11 @@ app.use(
     ],
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
-
+// handle preflight requests safely for Node.js v22.17.0 and above
+app.use(cors());
 
 // ================= SUPABASE =================
 const supabase = createClient(
@@ -92,6 +94,9 @@ const supabase = createClient(
 
 // ================= AUTH MIDDLEWARE =================
 const authenticateUser = async (req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return next();
+  }
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ error: "Missing authorization header" });
