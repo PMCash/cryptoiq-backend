@@ -196,6 +196,43 @@ const paystackData = response.data?.data;
   }
 });
 
+// ================= PAYSTACK VERIFY =================
+app.post("/paystack/verify", authenticateUser, async (req, res) => {
+  try {
+    const { reference } = req.body;
+
+    if (!reference) {
+      return res.status(400).json({ error: "Missing reference" });
+    }
+
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const payment = response.data?.data;
+
+    if (payment?.status !== "success") {
+      return res.status(400).json({ error: "Payment not successful" });
+    }
+
+    // Upgrade user
+    await supabase
+      .from("profiles")
+      .update({ role: "premium" })
+      .eq("id", req.user.id);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Verify error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Verification failed" });
+  }
+});
+
 // ================= SERVER =================
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () =>
