@@ -199,7 +199,7 @@ const paystackData = response.data?.data;
 });
 
 // ================= PAYSTACK VERIFY =================
-app.post("/paystack/verify", authenticateUser, async (req, res) => {
+app.post("/paystack/verify", async (req, res) => {
   try {
     const { reference } = req.body;
 
