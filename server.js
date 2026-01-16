@@ -154,6 +154,8 @@ app.get("/news", async (req, res) => {
 // ================= PAYSTACK INIT =================
 app.post("/paystack/initialize", authenticateUser, async (req, res) => {
   try {
+     // 🔍 TEMP DEBUG LOG (SAFE TO REMOVE LATER)
+ console.log("PAYSTACK KEY PRESENT:", !!process.env.PAYSTACK_SECRET_KEY);    
     if (!process.env.PAYSTACK_SECRET_KEY) {
        console.error("❌ PAYSTACK_SECRET_KEY is missing");
        return res.status(500).json({
