@@ -13,6 +13,8 @@ const crypto = require("crypto");
 
 // ================= APP =================
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 /**
  * ===================================================
@@ -65,7 +67,7 @@ app.post(
 );
 
 // ================= GLOBAL MIDDLEWARE =================
-app.use(express.json());
+
 
 app.use((req, res, next) => {
   console.log("➡️ Incoming:", req.method, req.url);
@@ -152,7 +154,7 @@ app.get("/news", async (req, res) => {
 
 
 // ================= PAYSTACK INIT =================
-app.post("/paystack/initialize", authenticateUser, async (req, res) => {
+app.post("/paystack/initialize", async (req, res) => {
   try {
      // 🔍 TEMP DEBUG LOG (SAFE TO REMOVE LATER)
  console.log("PAYSTACK KEY PRESENT:", !!process.env.PAYSTACK_SECRET_KEY);    
