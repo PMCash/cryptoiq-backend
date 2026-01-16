@@ -13,8 +13,6 @@ const crypto = require("crypto");
 
 // ================= APP =================
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 /**
  * ===================================================
@@ -42,7 +40,7 @@ app.post(
       if (event.event === "charge.success") {
         const email = event.data.customer.email;
 
-        const { data: user } = await supabase
+        const { data: user } = await supabaseAdmin
           .from("profiles")
           .select("id")
           .eq("email", email)
@@ -66,6 +64,10 @@ app.post(
   }
 );
 
+// THEN body parsers
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // ================= GLOBAL MIDDLEWARE =================
 
 
@@ -88,21 +90,23 @@ app.use(
 /*app.use(cors()); */
 // ================= SUPABASE =================
 
-/* Public client – used ONLY for auth verification
-const supabaseAuth = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-); */
+// Public client – used ONLY for auth verification
+
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.error("❌ Missing Supabase environment variables!");
   process.exit(1);
 }
+
 
 // Admin client – used for DB writes & webhooks
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// ✅ reuse admin client for auth
+const supabaseAuth = supabaseAdmin;
+
 
 
 // ================= AUTH MIDDLEWARE =================
