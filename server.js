@@ -49,7 +49,7 @@ app.post(
           .single();
 
         if (user) {
-          await supabase
+          await supabaseAdmin
             .from("profiles")
             .update({ role: "premium" })
             .eq("id", user.id);
@@ -87,10 +87,19 @@ app.use(
 // handle preflight requests safely for Node.js v22.17.0 and above
 /*app.use(cors()); */
 // ================= SUPABASE =================
-const supabase = createClient(
+
+// Public client – used ONLY for auth verification
+const supabaseAuth = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+// Admin client – used for DB writes & webhooks
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
 
 // ================= AUTH MIDDLEWARE =================
 const authenticateUser = async (req, res, next) => {
@@ -103,7 +112,7 @@ const authenticateUser = async (req, res, next) => {
   }
 
   const token = authHeader.replace("Bearer ", "");
-  const { data, error } = await supabase.auth.getUser(token);
+  const { data, error } = await supabaseAuth.auth.getUser(token);
 
   if (error || !data?.user) {
     return res.status(401).json({ error: "Invalid or expired token" });
@@ -154,7 +163,7 @@ app.get("/news", async (req, res) => {
 
 
 // ================= PAYSTACK INIT =================
-app.post("/paystack/initialize", async (req, res) => {
+app.post("/paystack/initialize", authenticateUser, async (req, res) => {
   try {
      // 🔍 TEMP DEBUG LOG (SAFE TO REMOVE LATER)
  console.log("PAYSTACK KEY PRESENT:", !!process.env.PAYSTACK_SECRET_KEY);    
@@ -201,7 +210,7 @@ const paystackData = response.data?.data;
 });
 
 // ================= PAYSTACK VERIFY =================
-app.post("/paystack/verify", async (req, res) => {
+app.post("/paystack/verify", authenticateUser, async (req, res) => {
   try {
     const { reference } = req.body;
 
@@ -225,7 +234,7 @@ app.post("/paystack/verify", async (req, res) => {
     }
 
     // Upgrade user
-    await supabase
+    await supabaseAdmin
       .from("profiles")
       .update({ role: "premium" })
       .eq("id", req.user.id);
