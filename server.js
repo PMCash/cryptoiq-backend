@@ -8,6 +8,7 @@ const parser = new Parser();
 const { createClient } = require("@supabase/supabase-js");
 const axios = require("axios");
 const crypto = require("crypto");
+const { channel } = require("diagnostics_channel");
 
 // ================= APP =================
 const app = express();
@@ -36,8 +37,11 @@ app.post(
       const event = JSON.parse(req.body.toString());
 
       if (event.event === "charge.success") {
-        const email = event.data.customer.email;
+        const data = event.data;
+        const { reference, customer } = data;
+        const email = customer.email;
 
+        // find user (existing logic)
         const { data: user } = await supabaseAdmin
           .from("profiles")
           .select("id")
@@ -46,11 +50,20 @@ app.post(
 
         if (user) {
           await supabaseAdmin
-            .from("profiles")
-            .update({ role: "premium" })
-            .eq("id", user.id);
+            .from("payments")
+            .upsert(
+           {
+            user_id: user.id,
+            reference,
+            status: "success",
+            amount: data?.amount,
+            currency: data?.currency,
+            channel: data?.channel,
+        },
+        { onConflict: "reference" }
+     );
 
-          console.log(`✅ User ${email} upgraded to premium`);
+
         }
       }
 
@@ -210,7 +223,7 @@ const paystackData = response.data?.data;
   }
 });
 
-// ================= PAYSTACK VERIFY =================
+// ================= PAYSTACK VERIFY =================//
 app.post("/paystack/verify", authenticateUser, async (req, res) => {
   try {
     const { reference } = req.body;
@@ -219,6 +232,8 @@ app.post("/paystack/verify", authenticateUser, async (req, res) => {
       return res.status(400).json({ error: "Missing reference" });
     }
 
+
+//Verify payment with Paystack
     const response = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
       {
@@ -234,16 +249,37 @@ app.post("/paystack/verify", authenticateUser, async (req, res) => {
       return res.status(400).json({ error: "Payment not successful" });
     }
 
-    // Upgrade user
-    await supabaseAdmin
-      .from("profiles")
-      .update({ role: "premium" })
-      .eq("id", req.user.id);
+  // Check if payment already recorded
+const { data: existing } = await supabaseAdmin
+  .from("payments")
+  .select("id")
+  .eq("reference", reference)
+  .single();
 
-    res.json({ success: true });
+if (!existing) {
+  await supabaseAdmin
+    .from("payments")
+    .insert({
+      user_id: req.user.id,
+      reference,
+      status: "success",
+      amount: payment.amount,
+      currency: payment.currency,
+      channel: payment.channel,
+    });
+
+  // Upgrade user ONLY once
+  await supabaseAdmin
+    .from("profiles")
+    .update({ role: "premium" })
+    .eq("id", req.user.id);
+}
+
+
+    return res.json({ success: true });
   } catch (err) {
     console.error("Verify error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Verification failed" });
+    return res.status(500).json({ error: "Verification failed" });
   }
 });
 
