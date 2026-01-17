@@ -1,7 +1,5 @@
 require("dotenv").config();
 
-console.log("🚀 Server file loaded");
-
 // ================= IMPORTS =================
 const express = require("express");
 const cors = require("cors");
@@ -68,13 +66,9 @@ app.post(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ================= GLOBAL MIDDLEWARE =================
+// ================= GLOBAL MIDDLEWARE =================//
 
-
-app.use((req, res, next) => {
-  console.log("➡️ Incoming:", req.method, req.url);
-  next();
-});
+/* Add proper loggers like pino or winston later in production */
 
 app.use(
   cors({
@@ -173,8 +167,7 @@ app.get("/news", async (req, res) => {
 // ================= PAYSTACK INIT =================
 app.post("/paystack/initialize", authenticateUser, async (req, res) => {
   try {
-     // 🔍 TEMP DEBUG LOG (SAFE TO REMOVE LATER)
- console.log("PAYSTACK KEY PRESENT:", !!process.env.PAYSTACK_SECRET_KEY);    
+       
     if (!process.env.PAYSTACK_SECRET_KEY) {
        console.error("❌ PAYSTACK_SECRET_KEY is missing");
        return res.status(500).json({
