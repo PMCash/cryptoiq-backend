@@ -119,23 +119,28 @@ app.post("/calculate", async (req, res) => {
   try {
     const { amount, buyPrice, sellPrice } = req.body;
 
-    if (!amount || !buyPrice || !sellPrice) {
-      return res.status(400).json({ error: "Missing input values" });
+    const usdInvested = Number(amount);
+    const buy = Number(buyPrice);
+    const sell = Number(sellPrice);
+
+    if (!usdInvested || !buy || !sell || usdInvested <= 0 || buy <= 0 || sell <= 0) {
+      return res.status(400).json({ error: "Invalid input values" });
     }
 
-    const invested = amount * buyPrice;
-    const newValue = amount * sellPrice;
-    const profit = newValue - invested;
-    const growth = ((profit / invested) * 100).toFixed(2);
+    const coinsBought = usdInvested / buy;
+    const newValue = coinsBought * sell;
+    const profit = newValue - usdInvested;
+    const growth = (profit / usdInvested) * 100;
 
-    res.json({
+    return res.json({
+      coinsBought: coinsBought.toFixed(8),
       newValue: newValue.toFixed(2),
       profit: profit.toFixed(2),
-      growth,
+      growth: growth.toFixed(2),
     });
   } catch (err) {
     console.error("Calculate error:", err);
-    res.status(500).json({ error: "Calculation failed" });
+    return res.status(500).json({ error: "Calculation failed" });
   }
 });
 
