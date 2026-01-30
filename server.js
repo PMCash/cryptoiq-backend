@@ -114,6 +114,30 @@ const supabaseAdmin = createClient(
 // ✅ reuse admin client for auth
 const supabaseAuth = supabaseAdmin;
 
+// ================= CRYPTO PROFIT CALCULATOR =================
+app.post("/calculate", async (req, res) => {
+  try {
+    const { amount, buyPrice, sellPrice } = req.body;
+
+    if (!amount || !buyPrice || !sellPrice) {
+      return res.status(400).json({ error: "Missing input values" });
+    }
+
+    const invested = amount * buyPrice;
+    const newValue = amount * sellPrice;
+    const profit = newValue - invested;
+    const growth = ((profit / invested) * 100).toFixed(2);
+
+    res.json({
+      newValue: newValue.toFixed(2),
+      profit: profit.toFixed(2),
+      growth,
+    });
+  } catch (err) {
+    console.error("Calculate error:", err);
+    res.status(500).json({ error: "Calculation failed" });
+  }
+});
 
 
 // ================= AUTH MIDDLEWARE =================
