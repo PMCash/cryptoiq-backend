@@ -216,17 +216,18 @@ app.post("/paystack/initialize", authenticateUser, async (req, res) => {
          error: "Payment system not configured",
       });
     }
-
+    const { plan = "premium" } = req.body; 
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {
         email: req.user.email,
         amount: 750000,
         currency: "NGN",
-        callback_url: `${process.env.FRONTEND_URL}/payment-success`,
-        metadata: {
+        callback_url: `${process.env.FRONTEND_URL}/payment-success`,  
+        
+    metadata: {
           user_id: req.user.id,
-          plan: "premium",
+          plan,
         },
       },
       {
@@ -278,6 +279,9 @@ app.post("/paystack/verify", authenticateUser, async (req, res) => {
       return res.status(400).json({ error: "Payment not successful" });
     }
 
+    // get plan from paystack metadata
+    const plan = payment?.metadata?.plan || "premium";
+
   // Check if payment already recorded
 const { data: existing } = await supabaseAdmin
   .from("payments")
@@ -286,6 +290,7 @@ const { data: existing } = await supabaseAdmin
   .single();
 
 if (!existing) {
+  // save payment
   await supabaseAdmin
     .from("payments")
     .insert({
@@ -298,11 +303,27 @@ if (!existing) {
     });
 
   // Upgrade user ONLY once
-  await supabaseAdmin
+  if (plan === "pro") {
+     await supabaseAdmin
     .from("profiles")
-    .update({ role: "premium" })
-    .eq("id", req.user.id);
-}
+    .update({ 
+      plan: "pro",
+      premium_expires_at: null, 
+    })
+    .eq("id", req.user.id)
+  }
+    if (plan === "premium") {
+      const expiresAt = new Date();
+      expiresAt.setMonth(expiresAt.getMonth() + 1); 
+  }
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        plan: "premium",
+        premium_expires_at: expiresAt.toISOString(),
+      })
+      .eq("id", req.user.id);
+    } 
 
 
     return res.json({ success: true });
