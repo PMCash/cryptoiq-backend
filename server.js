@@ -302,7 +302,7 @@ if (!existing) {
       channel: payment.channel,
     });
 
-  // Upgrade user ONLY once
+  // Upgrade user based on paid plan (from paystack metadata)
   if (plan === "pro") {
      await supabaseAdmin
     .from("profiles")
@@ -315,7 +315,7 @@ if (!existing) {
     if (plan === "premium") {
       const expiresAt = new Date();
       expiresAt.setMonth(expiresAt.getMonth() + 1); 
-  }
+    
     await supabaseAdmin
       .from("profiles")
       .update({
@@ -323,7 +323,8 @@ if (!existing) {
         premium_expires_at: expiresAt.toISOString(),
       })
       .eq("id", req.user.id);
-    } 
+    }
+  } 
 
 
     return res.json({ success: true });
