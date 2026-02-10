@@ -88,6 +88,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "https://cryptoiq-frontend-jsl1.onrender.com",
+      "https://mycryptoiqapp.com",
     ],
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization" , "X-country"],
